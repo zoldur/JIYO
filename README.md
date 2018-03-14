@@ -1,5 +1,5 @@
 # JIYO
-Shell script to install a [Jiyo Masternode](http://www.jiyo.io/) on a Linux server running Ubuntu 16.04. Use it on your own risk.
+Shell script to install a [Jiyo Masternode](http://www.jiyo.io/) on a Linux server running Ubuntu 14.04 or 16.04. Use it on your own risk.
 
 ***
 ## Installation:
@@ -46,11 +46,18 @@ jiyo-cli masternode status
 
 Also, if you want to check/start/stop **Jiyo** , run one of the following commands as **root**:
 
+**Ubuntu 16.04**:
 ```
 systemctl status Jiyo #To check the service is running.
 systemctl start Jiyo #To start Jiyo service.
 systemctl stop Jiyo #To stop Jiyo service.
 systemctl is-enabled Jiyo #To check whetether Jiyo service is enabled on boot or not.
+```
+**Ubuntu 14.04**:  
+```
+/etc/init.d/Jiyo start #To start Jiyo service
+/etc/init.d/Jiyo stop #To stop Jiyo service
+/etc/init.d/Jiyo restart #To restart Jiyo service
 ```
 
 ***

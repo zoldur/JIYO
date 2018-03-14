@@ -6,7 +6,7 @@ CONFIGFOLDER='/root/.jiyo'
 COIN_DAEMON='/usr/local/bin/jiyod'
 COIN_CLI='/usr/local/bin/jiyo-cli'
 COIN_REPO='http://wallets.mn.zone/jiyo-1.2.1-x86_64-linux.tar.gz'
-COIN_NAME='JIYO'
+COIN_NAME='Jiyo'
 COIN_PORT=6080
 
 
@@ -73,6 +73,48 @@ EOF
     echo -e "less /var/log/syslog${NC}"
     exit 1
   fi
+}
+
+function configure_startup() {
+  cat << EOF > /etc/init.d/$COIN_NAME
+#! /bin/bash
+### BEGIN INIT INFO
+# Provides: $COIN_NAME
+# Required-Start: $remote_fs $syslog
+# Required-Stop: $remote_fs $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: $COIN_NAME
+# Description: This file starts and stops $COIN_NAME MN server
+#
+### END INIT INFO
+
+case "\$1" in
+ start)
+   $COIN_DAEMON -daemon
+   sleep 5
+   ;;
+ stop)
+   $COIN_CLI stop
+   ;;
+ restart)
+   $COIN_CLI stop
+   sleep 10
+   $COIN_DAEMON -daemon
+   ;;
+ *)
+   echo "Usage: $COIN_NAME {start|stop|restart}" >&2
+   exit 3
+   ;;
+esac
+EOF
+chmod +x /etc/init.d/$COIN_NAME >/dev/null 2>&1
+update-rc.d $COIN_NAME defaults >/dev/null 2>&1
+/etc/init.d/$COIN_NAME start
+if [ "$?" -gt "0" ]; then
+ sleep 5
+ /etc/init.d/$COIN_NAME start
+fi
 }
 
 
@@ -169,13 +211,20 @@ if [ "$?" -gt "0" ];
 fi
 }
 
+function detect_ubuntu() {
+ if [[ $(lsb_release -d) == *16.04* ]]; then
+   UBUNTU_VERSION=16
+ elif [[ $(lsb_release -d) == *14.04* ]]; then
+   UBUNTU_VERSION=14
+else
+   echo -e "${RED}You are not running Ubuntu 14.04 or 16.04 Installation is cancelled.${NC}"
+   exit 1
+fi
+}
+
 
 function checks() {
-if [[ $(lsb_release -d) != *16.04* ]]; then
-  echo -e "${RED}You are not running Ubuntu 16.04. Installation is cancelled.${NC}"
-  exit 1
-fi
-
+ detect_ubuntu 
 if [[ $EUID -ne 0 ]]; then
    echo -e "${RED}$0 must be run as root.${NC}"
    exit 1
@@ -223,15 +272,20 @@ function important_information() {
  echo -e "================================================================================================================================"
  echo -e "$COIN_NAME Masternode is up and running listening on port ${RED}$COIN_PORT${NC}."
  echo -e "Configuration file is: ${RED}$CONFIGFOLDER/$CONFIG_FILE${NC}"
- echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
- echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
+ if ( UBUNTU_VERSION = 16 ); then
+   echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
+   echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
+ else
+   echo -e "Start: ${RED}/etc/init.d/$COIN_NAME start${NC}"
+   echo -e "Stop: ${RED}/etc/init.d/$COIN_NAME stop${NC}"
+ fi
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COIN_PORT${NC}"
  echo -e "MASTERNODE PRIVATEKEY is: ${RED}$COINKEY${NC}"
  if [[ -n $SENTINEL_REPO  ]]; then
   echo -e "${RED}Sentinel${NC} is installed in ${RED}$CONFIGFOLDER/sentinel${NC}"
   echo -e "Sentinel logs is: ${RED}$CONFIGFOLDER/sentinel.log${NC}"
  fi
- echo -e "Please check ${RED}$COIN_NAME${NC} is running with the following command: ${GREEN}systemctl status $COIN_NAME.service${NC}"
+ echo -e "Check if $COIN_NAME is running by using the following command: ${RED}ps -ef | grep $COIN_NAME | grep -v grep${NC}"
  echo -e "================================================================================================================================"
 }
 
@@ -242,7 +296,11 @@ function setup_node() {
   update_config
   enable_firewall
   important_information
-  configure_systemd
+  if ( UBUNTU_VERSION=16 ); then
+    configure_systemd
+  else
+    configure_startup
+  fi    
 }
 
 
