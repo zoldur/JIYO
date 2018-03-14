@@ -285,7 +285,7 @@ function important_information() {
   echo -e "${RED}Sentinel${NC} is installed in ${RED}$CONFIGFOLDER/sentinel${NC}"
   echo -e "Sentinel logs is: ${RED}$CONFIGFOLDER/sentinel.log${NC}"
  fi
- echo -e "Check if $COIN_NAME is running by using the following command: ${RED}ps -ef | grep $COIN_NAME | grep -v grep${NC}"
+ echo -e "Check if $COIN_NAME is running by using the following command: ${RED}ps -ef | grep $COIN_DAEMON | grep -v grep${NC}"
  echo -e "================================================================================================================================"
 }
 
