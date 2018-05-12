@@ -164,26 +164,15 @@ maxconnections=256
 masternode=1
 externalip=$NODEIP:$COIN_PORT
 masternodeprivkey=$COINKEY
-addnode=34.211.45.106:6080
-addnode=144.202.98.227:6080
-addnode=45.77.252.225:6080
-addnode=37.143.9.203:6080
-addnode=209.250.250.240:6080
-addnode=167.99.81.130:6080
-addnode=45.76.210.76:6080
-addnode=66.175.209.37:6080
-addnode=207.246.94.195:6080
-addnode=207.148.125.196:6080
-addnode=172.104.23.79:6080
-addnode=45.77.116.207:6080
-addnode=45.77.73.70:6080
-addnode=45.76.232.84:6080
-addnode=144.202.100.126:6080
-addnode=172.245.156.104:6080
-addnode=104.238.184.79:6080
-addnode=144.202.120.103:6080
-addnode=178.209.127.160:6080
-addnode=185.87.193.198:6080
+addnode=jiyo.seeds.mn.zone
+addnode=jiyo.mnseeds.com
+# Static list of reachable MasterNode IPs:
+addnode=167.99.103.69:6080
+addnode=138.68.161.200:6080
+addnode=149.28.69.27:6080
+addnode=45.76.102.26:6080
+addnode=34.245.124.183:6080
+addnode=149.56.108.254:6080
 EOF
 }
 
