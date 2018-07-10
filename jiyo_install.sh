@@ -3,11 +3,13 @@
 TMP_FOLDER=$(mktemp -d)
 CONFIG_FILE='jiyo.conf'
 CONFIGFOLDER='/root/.jiyo'
-COIN_DAEMON='/usr/local/bin/jiyod'
-COIN_CLI='/usr/local/bin/jiyo-cli'
-COIN_REPO='http://wallets.mn.zone/jiyo-1.2.1-x86_64-linux.tar.gz'
+COIN_PATH='/usr/local/bin/'
+COIN_DAEMON='jiyod'
+COIN_CLI='jiyo-cli'
+COIN_REPO='https://s3.amazonaws.com/jiyowallets/26.1/zip/linux-x64.tar.gz'
 COIN_NAME='Jiyo'
-COIN_PORT=6080
+COIN_PORT=9999
+RPC_PORT=8888
 
 
 NODEIP=$(curl -s4 api.ipify.org)
@@ -18,21 +20,17 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 
 
-function compile_node() {
-  echo -e "Prepare to download $COIN_NAME"
-  cd $TMP_FOLDER
-  wget -q $COIN_REPO
+function download_node() {
+  echo -e "Preparing to download ${GREEN}$COIN_NAME${NC}."
+  cd $TMP_FOLDER >/dev/null 2>&1
+  wget -q $COIN_TGZ
   compile_error
-  COIN_ZIP=$(echo $COIN_REPO | awk -F'/' '{print $NF}')
-  tar xvzf $COIN_ZIP >/dev/null 2>&1
-  compile_error
-  cp jiyo* /usr/local/bin
-  compile_error
-  strip $COIN_DAEMON $COIN_CLI
-  cd -
+  tar xvzf $COIN_ZIP -C $COIN_PATH >/dev/null 2>&1
+  cd - >/dev/null 2>&1
   rm -rf $TMP_FOLDER >/dev/null 2>&1
   clear
 }
+
 
 function configure_systemd() {
   cat << EOF > /etc/systemd/system/$COIN_NAME.service
@@ -47,8 +45,8 @@ Group=root
 Type=forking
 #PIDFile=$CONFIGFOLDER/$COIN_NAME.pid
 
-ExecStart=$COIN_DAEMON -daemon -conf=$CONFIGFOLDER/$CONFIG_FILE -datadir=$CONFIGFOLDER
-ExecStop=-$COIN_CLI -conf=$CONFIGFOLDER/$CONFIG_FILE -datadir=$CONFIGFOLDER stop
+ExecStart=$COIN_PATH$COIN_DAEMON -daemon -conf=$CONFIGFOLDER/$CONFIG_FILE -datadir=$CONFIGFOLDER
+ExecStop=-$COIN_PATH$COIN_CLI -conf=$CONFIGFOLDER/$CONFIG_FILE -datadir=$CONFIGFOLDER stop
 
 Restart=always
 PrivateTmp=true
@@ -75,48 +73,6 @@ EOF
   fi
 }
 
-function configure_startup() {
-  cat << EOF > /etc/init.d/$COIN_NAME
-#! /bin/bash
-### BEGIN INIT INFO
-# Provides: $COIN_NAME
-# Required-Start: $remote_fs $syslog
-# Required-Stop: $remote_fs $syslog
-# Default-Start: 2 3 4 5
-# Default-Stop: 0 1 6
-# Short-Description: $COIN_NAME
-# Description: This file starts and stops $COIN_NAME MN server
-#
-### END INIT INFO
-
-case "\$1" in
- start)
-   $COIN_DAEMON -daemon
-   sleep 5
-   ;;
- stop)
-   $COIN_CLI stop
-   ;;
- restart)
-   $COIN_CLI stop
-   sleep 10
-   $COIN_DAEMON -daemon
-   ;;
- *)
-   echo "Usage: $COIN_NAME {start|stop|restart}" >&2
-   exit 3
-   ;;
-esac
-EOF
-chmod +x /etc/init.d/$COIN_NAME >/dev/null 2>&1
-update-rc.d $COIN_NAME defaults >/dev/null 2>&1
-/etc/init.d/$COIN_NAME start >/dev/null 2>&1
-if [ "$?" -gt "0" ]; then
- sleep 5
- /etc/init.d/$COIN_NAME start >/dev/null 2>&1
-fi
-}
-
 
 function create_config() {
   mkdir $CONFIGFOLDER >/dev/null 2>&1
@@ -125,6 +81,7 @@ function create_config() {
   cat << EOF > $CONFIGFOLDER/$CONFIG_FILE
 rpcuser=$RPCUSER
 rpcpassword=$RPCPASSWORD
+rpcport=$RPC_PORT
 rpcallowip=127.0.0.1
 listen=1
 server=1
@@ -134,23 +91,23 @@ EOF
 }
 
 function create_key() {
-  echo -e "Enter your ${RED}$COIN_NAME Masternode Private Key${NC}. Leave it blank to generate a new ${RED}$COIN_NAME Masternode Private Key${NC} for you:"
+  echo -e "Enter your ${RED}$COIN_NAME Masternode Private Key${NC}. Leave it blank to generate a new ${RED}Masternode Private Key${NC} for you:"
   read -e COINKEY
   if [[ -z "$COINKEY" ]]; then
-  $COIN_DAEMON -daemon
+  $COIN_PATH$COIN_DAEMON -daemon
   sleep 30
   if [ -z "$(ps axo cmd:100 | grep $COIN_DAEMON)" ]; then
    echo -e "${RED}$COIN_NAME server couldn not start. Check /var/log/syslog for errors.{$NC}"
    exit 1
   fi
-  COINKEY=$($COIN_CLI masternode genkey)
+  COINKEY=$($COIN_PATH$COIN_CLI masternode genkey)
   if [ "$?" -gt "0" ];
     then
     echo -e "${RED}Wallet not fully loaded. Let us wait and try again to generate the Private Key${NC}"
     sleep 30
-    COINKEY=$($COIN_CLI masternode genkey)
+    COINKEY=$($COIN_PATH$COIN_CLI masternode genkey)
   fi
-  $COIN_CLI stop
+  $COIN_PATH$COIN_CLI stop
 fi
 clear
 }
@@ -161,18 +118,11 @@ function update_config() {
 logintimestamps=1
 maxconnections=256
 #bind=$NODEIP
+txindex=1
+listenonion=0
 masternode=1
 externalip=$NODEIP:$COIN_PORT
 masternodeprivkey=$COINKEY
-addnode=jiyo.seeds.mn.zone
-addnode=jiyo.mnseeds.com
-# Static list of reachable MasterNode IPs:
-addnode=167.99.103.69:6080
-addnode=138.68.161.200:6080
-addnode=149.28.69.27:6080
-addnode=45.76.102.26:6080
-addnode=34.245.124.183:6080
-addnode=149.56.108.254:6080
 EOF
 }
 
@@ -185,7 +135,6 @@ function enable_firewall() {
   ufw default allow outgoing >/dev/null 2>&1
   echo "y" | ufw enable >/dev/null 2>&1
 }
-
 
 
 function get_ip() {
@@ -220,20 +169,13 @@ if [ "$?" -gt "0" ];
 fi
 }
 
-function detect_ubuntu() {
- if [[ $(lsb_release -d) == *16.04* ]]; then
-   UBUNTU_VERSION=16
- elif [[ $(lsb_release -d) == *14.04* ]]; then
-   UBUNTU_VERSION=14
-else
-   echo -e "${RED}You are not running Ubuntu 14.04 or 16.04 Installation is cancelled.${NC}"
-   exit 1
-fi
-}
-
 
 function checks() {
- detect_ubuntu 
+if [[ $(lsb_release -d) != *1[46].04* ]]; then
+  echo -e "${RED}You are not running Ubuntu 14.04 or 16.04. Installation is cancelled.${NC}"
+  exit 1
+fi
+
 if [[ $EUID -ne 0 ]]; then
    echo -e "${RED}$0 must be run as root.${NC}"
    exit 1
@@ -258,7 +200,7 @@ apt-get update >/dev/null 2>&1
 apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" make software-properties-common \
 build-essential libtool autoconf libssl-dev libboost-dev libboost-chrono-dev libboost-filesystem-dev libboost-program-options-dev \
 libboost-system-dev libboost-test-dev libboost-thread-dev sudo automake git wget curl libdb4.8-dev bsdmainutils libdb4.8++-dev \
-libminiupnpc-dev libgmp3-dev ufw pkg-config libevent-dev>/dev/null 2>&1
+libminiupnpc-dev libgmp3-dev ufw pkg-config libevent-dev systemd >/dev/null 2>&1
 if [ "$?" -gt "0" ];
   then
     echo -e "${RED}Not all required packages were installed properly. Try to install them manually by running the following commands:${NC}\n"
@@ -268,33 +210,27 @@ if [ "$?" -gt "0" ];
     echo "apt-get update"
     echo "apt install -y make build-essential libtool software-properties-common autoconf libssl-dev libboost-dev libboost-chrono-dev libboost-filesystem-dev \
 libboost-program-options-dev libboost-system-dev libboost-test-dev libboost-thread-dev sudo automake git curl libdb4.8-dev \
-bsdmainutils libdb4.8++-dev libminiupnpc-dev libgmp3-dev ufw fail2ban pkg-config libevent-dev"
+bsdmainutils libdb4.8++-dev libminiupnpc-dev libgmp3-dev ufw pkg-config libevent-dev sytemd"
  exit 1
 fi
 
 clear
 }
 
-
 function important_information() {
- echo
  echo -e "================================================================================================================================"
  echo -e "$COIN_NAME Masternode is up and running listening on port ${RED}$COIN_PORT${NC}."
  echo -e "Configuration file is: ${RED}$CONFIGFOLDER/$CONFIG_FILE${NC}"
- if (( $UBUNTU_VERSION == 16 )); then
-   echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
-   echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
- else
-   echo -e "Start: ${RED}/etc/init.d/$COIN_NAME start${NC}"
-   echo -e "Stop: ${RED}/etc/init.d/$COIN_NAME stop${NC}"
- fi
+ echo -e "Start: ${RED}systemctl start $COIN_NAME.service${NC}"
+ echo -e "Stop: ${RED}systemctl stop $COIN_NAME.service${NC}"
  echo -e "VPS_IP:PORT ${RED}$NODEIP:$COIN_PORT${NC}"
  echo -e "MASTERNODE PRIVATEKEY is: ${RED}$COINKEY${NC}"
+ echo -e "Please check ${RED}$COIN_NAME${NC} daemon is running with the following command: ${RED}systemctl status $COIN_NAME.service${NC}"
+ echo -e "Use ${RED}$COIN_CLI masternode status${NC} to check your MN."
  if [[ -n $SENTINEL_REPO  ]]; then
   echo -e "${RED}Sentinel${NC} is installed in ${RED}$CONFIGFOLDER/sentinel${NC}"
   echo -e "Sentinel logs is: ${RED}$CONFIGFOLDER/sentinel.log${NC}"
  fi
- echo -e "Check if $COIN_NAME is running by using the following command: ${RED}ps -ef | grep $COIN_DAEMON | grep -v grep${NC}"
  echo -e "================================================================================================================================"
 }
 
@@ -305,18 +241,13 @@ function setup_node() {
   update_config
   enable_firewall
   important_information
-  if (( $UBUNTU_VERSION == 16 )); then
-    configure_systemd
-  else
-    configure_startup
-  fi    
+  configure_systemd
 }
-
 
 ##### Main #####
 clear
 
 checks
 prepare_system
-compile_node
+download_node
 setup_node
