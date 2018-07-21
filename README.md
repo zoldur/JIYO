@@ -64,12 +64,23 @@ rm -r /etc/systemd/system/Jiyo.service
 ```
 ***
 
+## Masternode update:
+In order to update your Jiyo Masternode from 2.0 to 2.1, please run the following commands:
+```
+cd /tmp
+wget -N https://github.com/jiyocoin/jiyox/releases/download/v.2.1/jiyo-2.1-linux-64bit.tar.gz
+tar xvzf jiyo-2.1-linux-64bit.tar.gz
+systemctl stop Jiyo
+mv jiyod jiyo-cli /usr/local/bin
+systemctl start Jiyo
+rm -r jiyo*
+```
+***
 
 ## Donations:
 
 Any donation is highly appreciated.
 
-**BTC**: 3MQLEcHXVvxpmwbB811qiC1c6g21ZKa7Jh
-**ETH**: 0x39d10fe57611c564abc255ffd7e984dc97e9bd6d
-**LTC**: LNZpK4rCd1JVSB3rGKTAnTkudV9So9zexB
-
+**BTC**: 3MQLEcHXVvxpmwbB811qiC1c6g21ZKa7Jh  
+**ETH**: 0x39d10fe57611c564abc255ffd7e984dc97e9bd6d  
+**LTC**: LNZpK4rCd1JVSB3rGKTAnTkudV9So9zexB  
