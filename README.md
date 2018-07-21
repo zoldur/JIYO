@@ -1,8 +1,9 @@
 # JIYO
-Shell script to install a [Jiyo Masternode](http://www.jiyo.io/) on a Linux server running Ubuntu 14.04 or 16.04. Use it on your own risk.
-
+Shell script to install a [Jiyo Masternode](http://www.jiyo.io/) on a Linux server running Ubuntu 14.04 or 16.04. Use it on your own risk.  
+This script will instal version 2.1
 ***
-## Installation:
+
+## VPS installation:
 ```
 wget -N https://raw.githubusercontent.com/zoldur/JIYO/master/jiyo_install.sh
 bash jiyo_install.sh
@@ -51,6 +52,18 @@ systemctl start Jiyo #To start Jiyo service.
 systemctl stop Jiyo #To stop Jiyo service.
 systemctl is-enabled Jiyo #To check whetether Jiyo service is enabled on boot or not.
 ```
+***
+## Old Jiyo delete:
+In order to delete your Jiyo Masternode,  please run the following commands:
+```
+systemctl stop Jiyo
+systemctl disable Jiyo
+rm -r /root/.jiyo*
+rm -r /usr/local/bin/jiyo*
+rm -r /etc/systemd/system/Jiyo.service
+```
+***
+
 
 ## Donations:
 
